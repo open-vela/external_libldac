@@ -123,14 +123,12 @@ typedef enum {
  *   - LDACBT_EQMID_HQ : Encode setting for High Quality.
  *   - LDACBT_EQMID_SQ : Encode setting for Standard Quality.
  *   - LDACBT_EQMID_MQ : Encode setting for Mobile use Quality.
- *   - LDACBT_EQMID_ABR: Reserved EQMID for ABR. The value shall be 0x7F.
  */
 enum {
     LDACBT_EQMID_HQ = 0,
     LDACBT_EQMID_SQ,
     LDACBT_EQMID_MQ,
-    LDACBT_EQMID_NUM,     /* terminator */
-    LDACBT_EQMID_ABR = 0x7F,
+    LDACBT_EQMID_NUM,     /* terminater */
 };
 
 /* Bit rates
