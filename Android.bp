@@ -1,6 +1,7 @@
 cc_library_shared {
     name: "libldacBT_enc",
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },
@@ -22,6 +23,7 @@ cc_library_shared {
 cc_library_shared {
     name: "libldacBT_abr",
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },
