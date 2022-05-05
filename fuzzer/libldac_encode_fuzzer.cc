@@ -6,7 +6,13 @@
 #include <stddef.h>
 #include "ldacBT.h"
 
+#include <string.h>
+#include <vector>
+
 #define TESTFUNC_TYPE extern "C" int
+constexpr int32_t kMaxWlValue = 4;
+constexpr int32_t kMaxChValue = 2;
+constexpr int32_t kMaxFrameSize = LDACBT_ENC_LSU * kMaxWlValue * kMaxChValue;
 
 TESTFUNC_TYPE
 LLVMFuzzerTestOneInput(const uint8_t *buf, size_t size)
@@ -27,10 +33,17 @@ LLVMFuzzerTestOneInput(const uint8_t *buf, size_t size)
         LDACBT_CHANNEL_MODE_DUAL_CHANNEL,
         LDACBT_SMPL_FMT_S16,
         48000);
+    uint8_t *readPointer = const_cast<uint8_t *>(buf);
+    std::vector<uint8_t> tmpData(kMaxFrameSize);
+
+    if (size < kMaxFrameSize) {
+      memcpy(tmpData.data(), buf, size);
+      readPointer = tmpData.data();
+    }
 
     ldacBT_encode(
         hLdacBt,
-        (void *)(&buf + 44),
+        readPointer,
         &pcm_used,
         p_stream,
         &stream_sz,
