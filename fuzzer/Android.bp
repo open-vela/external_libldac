@@ -18,7 +18,7 @@ package {
 
 cc_fuzz {
     name: "libldac-encode_fuzzer",
-    shared_libs: ["libldacBT_enc"],
+    static_libs: ["libldacBT_enc"],
     srcs: ["libldac_encode_fuzzer.cc"],
     fuzz_config: {
         componentid: 27441
