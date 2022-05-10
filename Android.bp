@@ -48,6 +48,7 @@ cc_library {
         "com.android.bluetooth",
     ],
     visibility: [
+        "//external/libldac/fuzzer",
         "//external/oss-fuzz",
         "//packages/modules/Bluetooth:__subpackages__",
         "//packages/modules/vndk/apex",
