@@ -1,28 +1,23 @@
-/*
- * Copyright (C) 2003 - 2017 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldac.h"
 
+#ifndef _DECODE_ONLY
 /***************************************************************************************************
     Calculate Bits for Band Info
 ***************************************************************************************************/
 static int encode_band_info_ldac(
+#ifdef __GNUC__
 __attribute__((unused)) AB *p_ab)
+#else
+AB *p_ab)
+#endif /* __GNUC__ */
 {
-    int	nbits;
+    int nbits;
 
     nbits = LDAC_NBANDBITS + LDAC_FLAGBITS;
 
@@ -35,7 +30,7 @@ __attribute__((unused)) AB *p_ab)
 static int encode_gradient_ldac(
 AB *p_ab)
 {
-    int	nbits;
+    int nbits;
 
     if (p_ab->grad_mode == LDAC_MODE_0) {
         nbits = LDAC_GRADMODEBITS + LDAC_GRADQU0BITS*2 + LDAC_GRADOSBITS*2 + LDAC_NADJQUBITS;
@@ -277,6 +272,7 @@ AB *p_ab)
 
     return nbits;
 }
+#endif /* _DECODE_ONLY */
 
 /***************************************************************************************************
     Calculate Additional Word Length Data
@@ -336,4 +332,122 @@ AC *p_ac)
     return;
 }
 
+#ifndef _ENCODE_ONLY
+/***************************************************************************************************
+    Reconstruct Gradient Curve Data
+***************************************************************************************************/
+DECLFUNC void reconst_gradient_ldac(
+AB *p_ab,
+int lqu,
+int hqu)
+{
+    int iqu;
+    int tmp;
+    int grad_qu_l = p_ab->grad_qu_l;
+    int grad_qu_h = p_ab->grad_qu_h;
+    int grad_os_l = p_ab->grad_os_l;
+    int grad_os_h = p_ab->grad_os_h;
+    int *p_grad = p_ab->a_grad;
+    const unsigned char *p_t;
+
+    tmp = grad_qu_h - grad_qu_l;
+
+    for (iqu = lqu; iqu < grad_qu_h; iqu++) {
+        p_grad[iqu] = -grad_os_l;
+    }
+    for (iqu = grad_qu_h; iqu < hqu; iqu++) {
+        p_grad[iqu] = -grad_os_h;
+    }
+
+    if (tmp > 0) {
+        p_t = gaa_resamp_grad_ldac[tmp-1];
+
+        tmp = grad_os_h - grad_os_l;
+        if (tmp > 0) {
+            tmp = tmp-1;
+            for (iqu = grad_qu_l; iqu < grad_qu_h; iqu++) {
+                p_grad[iqu] -= ((*p_t++ * tmp) >> 8) + 1;
+            }
+        }
+        else if (tmp < 0) {
+            tmp = -tmp-1;
+            for (iqu = grad_qu_l; iqu < grad_qu_h; iqu++) {
+                p_grad[iqu] += ((*p_t++ * tmp) >> 8) + 1;
+            }
+        }
+    }
+
+    return;
+}
+
+/***************************************************************************************************
+    Reconstruct Word Length Data
+***************************************************************************************************/
+DECLFUNC void reconst_word_length_ldac(
+AC *p_ac)
+{
+    int iqu;
+    int nqus = p_ac->p_ab->nqus;
+    int nadjqus = p_ac->p_ab->nadjqus;
+    int grad_mode = p_ac->p_ab->grad_mode;
+    int *p_grad = p_ac->p_ab->a_grad;
+    int *p_idsf = p_ac->a_idsf;
+    int *p_addwl = p_ac->a_addwl;
+    int *p_idwl1 = p_ac->a_idwl1;
+    int *p_idwl2 = p_ac->a_idwl2;
+
+    if (grad_mode == LDAC_MODE_0) {
+        for (iqu = 0; iqu < nqus; iqu++) {
+            p_idwl1[iqu] = p_idsf[iqu] + p_grad[iqu];
+        }
+    }
+    else if (grad_mode == LDAC_MODE_1) {
+        for (iqu = 0; iqu < nqus; iqu++) {
+            p_idwl1[iqu] = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
+            if (p_idwl1[iqu] > 0) {
+                p_idwl1[iqu] = (p_idwl1[iqu]) >> 1;
+            }
+        }
+    }
+    else if (grad_mode == LDAC_MODE_2) {
+        for (iqu = 0; iqu < nqus; iqu++) {
+            p_idwl1[iqu] = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
+            if (p_idwl1[iqu] > 0) {
+                p_idwl1[iqu] = (p_idwl1[iqu]*3) >> 3;
+            }
+        }
+    }
+    else if (grad_mode == LDAC_MODE_3) {
+        for (iqu = 0; iqu < nqus; iqu++) {
+            p_idwl1[iqu] = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
+            if (p_idwl1[iqu] > 0) {
+                p_idwl1[iqu] = (p_idwl1[iqu]) >> 2;
+            }
+        }
+    }
+
+    for (iqu = 0; iqu < nqus; iqu++) {
+        if (p_idwl1[iqu] < LDAC_MINIDWL1) {
+            p_idwl1[iqu] = LDAC_MINIDWL1;
+        }
+    }
+
+    for (iqu = 0; iqu < nadjqus; iqu++) {
+        p_idwl1[iqu]++;
+    }
+
+    for (iqu = 0; iqu < nqus; iqu++) {
+        p_idwl2[iqu] = 0;
+        if (p_idwl1[iqu] > LDAC_MAXIDWL1) {
+            p_idwl2[iqu] = p_idwl1[iqu] - LDAC_MAXIDWL1;
+            if (p_idwl2[iqu] > LDAC_MAXIDWL2) {
+                p_idwl2[iqu] = LDAC_MAXIDWL2;
+            }
+            p_idwl1[iqu] = LDAC_MAXIDWL1;
+        }
+    }
+
+    return;
+}
+#endif /* _ENCODE_ONLY */
 
