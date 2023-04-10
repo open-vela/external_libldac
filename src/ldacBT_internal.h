@@ -1,26 +1,18 @@
-/*
- * Copyright (C) 2013 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2013 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #ifndef _LDACBT_INTERNAL_H_
 #define _LDACBT_INTERNAL_H_
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef ANDROID
 #include <stdint.h>
 #include <unistd.h>
+#endif
 #include "struct_ldac.h"
 
 #ifdef    __cplusplus
@@ -36,7 +28,9 @@ extern "C" {
 
 #include "ldaclib.h"
 #include "ldacBT.h"
+#ifndef _DECODE_ONLY
 #include "ldacBT_ex.h"
+#endif
 
 /* macro value */
 /* The size of LDAC transport header. Unit:Byte. */
@@ -95,6 +89,7 @@ typedef enum {
 } LDACBT_PROCMODE;
 
 /* Structs */
+#ifndef    _DECODE_ONLY
 /* The structure for the property of EQMID. */
 typedef struct _st_ldacbt_eqmid_property
 {
@@ -102,6 +97,7 @@ typedef struct _st_ldacbt_eqmid_property
     char strModeName[4];
     int  id_for_2DH5;
 } LDACBT_EQMID_PROPERTY, * P_LDACBT_EQMID_PROPERTY;
+#endif    /* _DECODE_ONLY */
 
 /* The structure for the configuration of LDAC. */
 typedef struct _st_ldacbt_config 
@@ -128,12 +124,15 @@ typedef struct _ldacbt_tx_info {
     int pkt_hdr_sz;  /* packet header size */
     int nfrm_in_pkt; /* number of ldac frame in packet */
 } LDACBT_TX_INFO;
+#ifndef _DECODE_ONLY
 /* The structure for the ldac_transport_frame sequence. */
 typedef struct _ldacbt_transport_frame_buf {
     unsigned char buf[LDACBT_ENC_STREAM_BUF_SZ];
     int used;
     int nfrm_in;
 } LDACBT_TRANSPORT_FRM_BUF;
+#endif
+#ifndef _DECODE_ONLY
 /* The structure of ring buffer for the input PCM. */
 typedef struct _ldacbt_pcm_ring_buf {
     char buf[LDACBT_ENC_PCM_BUF_SZ]; 
@@ -141,6 +140,7 @@ typedef struct _ldacbt_pcm_ring_buf {
     int rp;
     int nsmpl;
 } LDACBT_PCM_RING_BUF;
+#endif
 
 /* The LDACBT handle. */
 typedef struct _st_ldacbt_handle {
@@ -157,7 +157,9 @@ typedef struct _st_ldacbt_handle {
     int frm_samples;  /* frame samples */
     int sfid;         /* sampling frequency index */
     int nshift;
+#ifndef _DECODE_ONLY
     int flg_encode_flushed;
+#endif /* _DECODE_ONLY */
     int frm_status;
     int frmlen;    /* Frame Length */
     int frmlen_tx; /* Frame Length with transport header */
@@ -173,10 +175,15 @@ typedef struct _st_ldacbt_handle {
     int cm; /* Channel Mode */
     int cci; /* Channel Config Index */
     int transport;   /* Transport Stream ( with frame header) */
+#ifndef _ENCODE_ONLY
+    int flg_decode_inited;
+#endif
+#ifndef _DECODE_ONLY
     /* buffer for "ldac_transport_frame" sequence */
     LDACBT_TRANSPORT_FRM_BUF ldac_trns_frm_buf;
     /* buffer for input pcm */
     LDACBT_PCM_RING_BUF pcmring;
+#endif
 
 /* work buffer for LDACLIB I/O */
     char **pp_pcm;
@@ -185,6 +192,8 @@ typedef struct _st_ldacbt_handle {
 } STRUCT_LDACBT_HANDLE;
 
 
+#ifndef _DECODE_ONLY
+#endif
 
 /* subfunctions */
 DECLFUNC void ldacBT_param_clear(HANDLE_LDAC_BT hLdacBT);
@@ -193,6 +202,7 @@ DECLFUNC int  ldacBT_assert_cm( int cm );
 DECLFUNC int  ldacBT_assert_cci( int cci );
 DECLFUNC int  ldacBT_assert_sample_format( LDACBT_SMPL_FMT_T fmt );
 DECLFUNC int  ldacBT_assert_pcm_sampling_freq( int sf );
+#ifndef    _DECODE_ONLY
 DECLFUNC int  ldacBT_assert_mtu( int mtu );
 DECLFUNC int  ldacBT_assert_eqmid( int eqmid );
 DECLFUNC void ldacBT_set_eqmid_core( HANDLE_LDAC_BT hLdacBT, int eqmid );
@@ -200,12 +210,21 @@ DECLFUNC void ldacBT_prepare_pcm_encode( void *pbuff, char **ap_pcm, int nsmpl, 
                      LDACBT_SMPL_FMT_T fmt );
 DECLFUNC int  ldacBT_frmlen_to_bitrate( int frmlen, int flgFrmHdr, int sf, int frame_samples );
 DECLFUNC int  ldacBT_cm_to_cci( int cm );
+#ifndef _ENCODE_ONLY
 DECLFUNC int  ldacBT_cci_to_cm( int cci );
+#endif
 DECLFUNC int  ldacBT_get_altered_eqmid ( HANDLE_LDAC_BT hLdacBT, int priority );
 DECLFUNC int  ldacBT_get_eqmid_from_frmlen( int frmlen, int nch, int flgFrmHdr, int pktType );
 DECLFUNC int  ldacBT_update_frmlen(HANDLE_LDAC_BT hLdacBT, int frmlen);
+#endif    /* _DECODE_ONLY */
+#ifndef _ENCODE_ONLY
+DECLFUNC int  ldacBT_interleave_pcm( unsigned char *p_pcm, const char **pp_pcm, int nsmpl, int nch,
+                                     LDACBT_SMPL_FMT_T fmt );
+#endif /* _ENCODE_ONLY */
+#ifndef    _DECODE_ONLY
 DECLFUNC P_LDACBT_EQMID_PROPERTY ldacBT_get_eqmid_conv_tbl ( int ldac_bt_mode );
 DECLFUNC P_LDACBT_CONFIG ldacBT_get_config( int ldac_bt_mode, int pkt_type );
+#endif    /* _DECODE_ONLY */
 
 #ifdef    __cplusplus
 }

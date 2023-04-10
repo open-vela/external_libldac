@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2013 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2013 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #ifndef _LDACLIB_H
 #define _LDACLIB_H
@@ -78,8 +68,15 @@ DECLSPEC LDAC_RESULT ldaclib_free_handle(HANDLE_LDAC);
 
 DECLSPEC LDAC_RESULT ldaclib_set_config_info(HANDLE_LDAC, int, int, int, int);
 DECLSPEC LDAC_RESULT ldaclib_get_config_info(HANDLE_LDAC, int *, int *, int *, int *);
+#ifndef _DECODE_ONLY
 DECLSPEC LDAC_RESULT ldaclib_set_frame_header(HANDLE_LDAC, unsigned char *, int, int, int, int);
+#endif /* _DECODE_ONLY */
+#ifndef _ENCODE_ONLY
+DECLSPEC LDAC_RESULT ldaclib_get_frame_header(HANDLE_LDAC, unsigned char *, int *, int *, int *, int *);
+DECLSPEC LDAC_RESULT ldaclib_check_frame_header(HANDLE_LDAC, int, int);
+#endif /* _ENCODE_ONLY */
 
+#ifndef _DECODE_ONLY
 /* Encoder API Functions */
 DECLSPEC LDAC_RESULT ldaclib_get_encode_setting(int, int, int *, int *, int *, int *, int *, int *, int *);
 DECLSPEC LDAC_RESULT ldaclib_set_encode_frame_length(HANDLE_LDAC, int);
@@ -89,7 +86,14 @@ DECLSPEC LDAC_RESULT ldaclib_init_encode(HANDLE_LDAC);
 DECLSPEC LDAC_RESULT ldaclib_free_encode(HANDLE_LDAC);
 DECLSPEC LDAC_RESULT ldaclib_encode(HANDLE_LDAC, char *[], LDAC_SMPL_FMT_T, unsigned char *, int *);
 DECLSPEC LDAC_RESULT ldaclib_flush_encode(HANDLE_LDAC, LDAC_SMPL_FMT_T, unsigned char *, int *);
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/* Decoder API Functions */
+DECLSPEC LDAC_RESULT ldaclib_init_decode(HANDLE_LDAC, int);
+DECLSPEC LDAC_RESULT ldaclib_free_decode(HANDLE_LDAC);
+DECLSPEC LDAC_RESULT ldaclib_decode(HANDLE_LDAC, unsigned char *, char *[], int, int *, LDAC_SMPL_FMT_T);
+#endif /* _ENCODE_ONLY */
 
 /* Error Code Dispatch */
 DECLSPEC LDAC_RESULT ldaclib_get_error_code(HANDLE_LDAC, int *);
