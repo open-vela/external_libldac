@@ -1,21 +1,12 @@
-/*
- * Copyright (C) 2003 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldac.h"
 
+#ifndef _DECODE_ONLY
 
 
 /***************************************************************************************************
@@ -70,10 +61,10 @@ int hqu)
     /* Calculate Bits */
     for (ich = 0; ich < nchs; ich++) {
         p_ac = p_ab->ap_ac[ich];
-	p_idsf = p_ac->a_idsf;
-	p_addwl = p_ac->a_addwl;
-	p_idwl1 = p_ac->a_idwl1;
-	p_idwl2 = p_ac->a_idwl2;
+        p_idsf = p_ac->a_idsf;
+        p_addwl = p_ac->a_addwl;
+        p_idwl1 = p_ac->a_idwl1;
+        p_idwl2 = p_ac->a_idwl2;
 
         if (grad_mode == LDAC_MODE_0) { 
             for (iqu = 0; iqu < hqu; iqu++) {
@@ -187,9 +178,9 @@ int nadjqus)
     /* Calculate Bits */
     for (ich = 0; ich < nchs; ich++) {
         p_ac = p_ab->ap_ac[ich]; 
-	p_idwl1 = p_ac->a_idwl1;
-	p_idwl2 = p_ac->a_idwl2;
-	p_tmp = p_ac->a_tmp;
+        p_idwl1 = p_ac->a_idwl1;
+        p_idwl2 = p_ac->a_idwl2;
+        p_tmp = p_ac->a_tmp;
 
         for (iqu = 0; iqu < nqus; iqu++) {
             idwl1 = p_tmp[iqu];
@@ -565,8 +556,8 @@ int *p_nadjqus)
 
         if (grad_mode == LDAC_MODE_0) {
             for (iqu = 0; iqu < nqus; iqu++) {
-		idwl1 = p_idwl1[iqu];
-		idwl2 = p_idwl2[iqu];
+                idwl1 = p_idwl1[iqu];
+                idwl2 = p_idwl2[iqu];
                 idsp = ga_idsp_ldac[iqu];
                 nbits_fix += gaa_ndim_wls_ldac[idsp][idwl1] + ga_wl_ldac[idwl2] * ga_nsps_ldac[iqu];
                 tmp = p_idsf[iqu] + p_grad[iqu];
@@ -578,8 +569,8 @@ int *p_nadjqus)
         }
         else if (grad_mode == LDAC_MODE_1) {
             for (iqu = 0; iqu < nqus; iqu++) {
-		idwl1 = p_idwl1[iqu];
-		idwl2 = p_idwl2[iqu];
+                idwl1 = p_idwl1[iqu];
+                idwl2 = p_idwl2[iqu];
                 idsp = ga_idsp_ldac[iqu];
                 nbits_fix += gaa_ndim_wls_ldac[idsp][idwl1] + ga_wl_ldac[idwl2] * ga_nsps_ldac[iqu];
                 tmp = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
@@ -594,8 +585,8 @@ int *p_nadjqus)
         }
         else if (grad_mode == LDAC_MODE_2) {
             for (iqu = 0; iqu < nqus; iqu++) {
-		idwl1 = p_idwl1[iqu];
-		idwl2 = p_idwl2[iqu];
+                idwl1 = p_idwl1[iqu];
+                idwl2 = p_idwl2[iqu];
                 idsp = ga_idsp_ldac[iqu];
                 nbits_fix += gaa_ndim_wls_ldac[idsp][idwl1] + ga_wl_ldac[idwl2] * ga_nsps_ldac[iqu];
                 tmp = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
@@ -610,8 +601,8 @@ int *p_nadjqus)
         }
         else if (grad_mode == LDAC_MODE_3) {
             for (iqu = 0; iqu < nqus; iqu++) {
-		idwl1 = p_idwl1[iqu];
-		idwl2 = p_idwl2[iqu];
+                idwl1 = p_idwl1[iqu];
+                idwl2 = p_idwl2[iqu];
                 idsp = ga_idsp_ldac[iqu];
                 nbits_fix += gaa_ndim_wls_ldac[idsp][idwl1] + ga_wl_ldac[idwl2] * ga_nsps_ldac[iqu];
                 tmp = p_idsf[iqu] + p_grad[iqu] + p_addwl[iqu];
@@ -730,4 +721,5 @@ AB *p_ab)
     return LDAC_TRUE;
 }
 
+#endif /* _DECODE_ONLY */
 

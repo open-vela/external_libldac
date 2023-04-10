@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2013 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2013 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 
 #include "ldac.h"
@@ -31,6 +21,7 @@
 #include "memory_ldac.c"
 #include "ldaclib_api.c"
 
+#ifndef _DECODE_ONLY
 /* Encoder Files */
 #ifndef _32BIT_FIXED_POINT
 #include "mdct_ldac.c"
@@ -44,5 +35,18 @@
 #include "bitalloc_ldac.c"
 #include "pack_ldac.c"
 #include "encode_ldac.c"
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/* Decoder Files */
+#ifndef _32BIT_FIXED_POINT
+#include "imdct_ldac.c"
+#include "dequant_ldac.c"
+#else /* _32BIT_FIXED_POINT */
+#include "imdct_fixp_ldac.c"
+#include "dequant_fixp_ldac.c"
+#endif /* _32BIT_FIXED_POINT */
+#include "unpack_ldac.c"
+#include "decode_ldac.c"
+#endif /* _ENCODE_ONLY */
 

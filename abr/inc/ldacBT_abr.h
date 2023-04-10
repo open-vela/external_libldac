@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2014 - 2017 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2014 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #ifndef _LDACBT_ABR_H_
 #define _LDACBT_ABR_H_
@@ -82,7 +72,11 @@ extern "C" {
 #define LDAC_ABR_API
 #endif /* LDAC_ABR_API */
 
+#ifdef ANDROID
 #include <ldacBT.h> /* HANDLE_LDAC_BT */
+#else
+#include "ldacBT.h" /* HANDLE_LDAC_BT */
+#endif
 
 /* LDAC ABR handle type*/
 typedef struct _ldacbt_abr_param * HANDLE_LDAC_ABR;
@@ -91,11 +85,11 @@ typedef struct _ldacbt_abr_param * HANDLE_LDAC_ABR;
  *  Format
  *      HANDLE_LDAC_ABR  ldacBT_get_handle( void );
  *  Arguments
- *      None.
+ *      libpath     const char *   LDAC shared library path to dlopen.
  *  Return value
  *      HANDLE_LDAC_ABR for success, NULL for failure.
  */
-LDAC_ABR_API HANDLE_LDAC_ABR ldac_ABR_get_handle(void);
+LDAC_ABR_API HANDLE_LDAC_ABR ldac_ABR_get_handle(const char *libpath);
 
 /* Release of LDAC ABR handle.
  *  Format

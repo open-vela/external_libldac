@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2013 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2013 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #ifndef _LDACBT_H_
 #define _LDACBT_H_
@@ -24,8 +14,19 @@ extern "C" {
 #endif /* LDACBT_API  */
 
 /* This file contains the definitions, declarations and macros for an implimentation of 
+#ifdef _ENCODE_ONLY
  * LDAC encode processing.
+#endif
+#ifdef _DECODE_ONLY
+ * LDAC decode processing.
+#endif
+#ifndef _ENCODE_ONLY
+#ifndef _DECODE_ONLY
+ * LDAC encode and decode processing.
+#endif
+#endif
  *
+#ifndef _DECODE_ONLY
  * The basic flow of the encode processing is as follows:
  * - The program creates an handle of an LDAC api using ldacBT_get_handle().
  * - The program initialize the handle for encode using ldacBT_init_handle_encode().
@@ -39,23 +40,60 @@ extern "C" {
  * - The handle may be closed using ldacBT_close_handle() then used again, or released with
  *   ldacBT_free_handle().
  * - The rest of the set functions should be called only if it is needed by the client.
+#endif // _DECODE_ONLY
+#ifndef _ENCODE_ONLY
+ * The basic flow of the decode processing is as follows:
+ * - The program creates an handle of an LDAC api using ldacBT_get_handle().
+ * - The program initialize the handle for decode using ldacBT_init_handle_decode().
+ * - The program calls ldacBT_decode() to decode data.
+ * - The handle may be closed using ldacBT_close_handle() then used again, or released with
+ *   ldacBT_free_handle().
+ * - The rest of the set functions should be called only if it is needed by the client.
+#endif // _ENCODE_ONLY
  *
  *
  * Note for an implimentation
  * - Error processing
  *     When continuous processing for next frame is performed after error detection, following
  *     processing must be carried out using C function provided in the library.
+#ifdef _ENCODE_ONLY
  *      - Release of internal variables in encode processing using ldacBT_close_handle().
  *      - Allocation and initialization of internal variables in encode processing using
  *        ldacBT_init_handle_encode().
  *     Note that the encoded output for a few frames will not be present just after error recovery.
+#endif // _ENCODE_ONLY
+#ifdef _DECODE_ONLY
+ *      - Release of internal variables in decode processing using ldacBT_close_handle().
+ *      - Allocation and initialization of internal variables in decode processing using
+ *        ldacBT_init_handle_decode().
+ *     Note that the first decoded out PCM signal will not be present just after error recovery.
+#endif // _DECODE_ONLY
+#ifndef _ENCODE_ONLY
+#ifndef _DECODE_ONLY
+ *      - Release of internal variables in encode/decode processing using ldacBT_close_handle().
+ *      - Allocation and initialization of internal variables in encode/decode processing using
+ *        ldacBT_init_handle_encode() for encode, ldacBT_init_handle_decode() for decode.
+ *     Note that the encoded output for a few frames will not be present just after error recovery.
+ *     Note that the first decoded out PCM signal will not be present just after error recovery.
+#endif
+#endif
  *
+#ifndef _DECODE_ONLY
  * - Resuming of the encode processing from an interruption
  *     In case of resuming of the encode processing from interruption (such as changing
  *     configuration, seeking and playback), initialization of internal variables in encode
  *     processing must be carried out as error processing described above.
  *     Note that the encoded output for a few frames will not be present just after initialization
  *     as above.
+#endif
+#ifndef _ENCODE_ONLY
+ * Resuming of the decode processing from an interruption
+ *     In case of resuming of the decode processing from interruption (such as changing
+ *     configuration, seeking and playback), initialization of internal variables in decode
+ *     processing must be carried out as error processing described above.
+ *     Note that the first decoded out PCM signal will not be present just after initialization
+ *     as above.
+#endif
  *
  *
  * Glossary
@@ -117,6 +155,7 @@ typedef enum {
     LDACBT_SMPL_FMT_F32 = 0x5,
 } LDACBT_SMPL_FMT_T;
 
+#ifndef _DECODE_ONLY
 /* Encode Quality Mode Index. (EQMID)
  *  The configuration of encoding in LDAC will be coordinated by "Encode Quality Mode Index"
  *  parameter. Configurable values are shown below.
@@ -145,6 +184,7 @@ enum {
  *    | LDACBT_EQMID_MQ |   303kbps  |   330kbps  |
  *     -------------------------------------------
  */
+#endif
 
 /* Maximum size of the "ldac_transport_frame" sequence at transportation. */
 #define LDACBT_MAX_NBYTES 1024 /* byte */
@@ -201,8 +241,20 @@ LDACBT_API void ldacBT_close_handle( HANDLE_LDAC_BT hLdacBt );
 LDACBT_API int  ldacBT_get_version( void );
 
 /* Acquisition of the sampling frequency in current configuration.
+#ifdef _ENCODE_ONLY
  * The LDAC handle must be initialized by API function ldacBT_init_handle_encode() prior to
  * calling this function.
+#endif
+#ifdef _DECODE_ONLY
+ * The LDAC handle must be initialized by API function ldacBT_init_handle_decode() prior to
+ * calling this function.
+#endif
+#ifndef _ENCODE_ONLY
+#ifndef _DECODE_ONLY
+ * The LDAC handle must be initialized by API function ldacBT_init_handle_encode() or
+ * ldacBT_init_handle_decode() prior to calling this function.
+#endif
+#endif
  *  Format
  *      int  ldacBT_get_sampling_freq( HANDLE_LDAC_BT hLdacBt );
  *  Arguments
@@ -213,8 +265,20 @@ LDACBT_API int  ldacBT_get_version( void );
 LDACBT_API int  ldacBT_get_sampling_freq( HANDLE_LDAC_BT hLdacBt );
 
 /* Acquisition of the Bit-rate.
+#ifdef _ENCODE_ONLY
  * The LDAC handle must be initialized by API function ldacBT_init_handle_encode() prior to
  * calling this function.
+#endif
+#ifdef _DECODE_ONLY
+ * The LDAC handle must be initialized by API function ldacBT_init_handle_decode() prior to
+ * calling this function.
+#endif
+#ifndef _ENCODE_ONLY
+#ifndef _DECODE_ONLY
+ * The LDAC handle must be initialized by API function ldacBT_init_handle_encode() or
+ * ldacBT_init_handle_decode() prior to calling this function.
+#endif
+#endif
  *  Format
  *      int  ldacBT_get_bitrate( HANDLE_LDAC_BT hLdacBt );
  *  Arguments
@@ -224,6 +288,7 @@ LDACBT_API int  ldacBT_get_sampling_freq( HANDLE_LDAC_BT hLdacBt );
  */
 LDACBT_API int  ldacBT_get_bitrate( HANDLE_LDAC_BT hLdacBt );
 
+#ifndef _DECODE_ONLY
 /* Initialization of a LDAC handle for encode processing.
  * The LDAC handle must be allocated by API function ldacBT_get_handle() prior to calling this API.
  * "mtu" value should be configured to MTU size of AVDTP Transport Channel, which is determined by
@@ -348,6 +413,69 @@ LDACBT_API int  ldacBT_alter_eqmid_priority( HANDLE_LDAC_BT hLdacBt, int priorit
  */
 LDACBT_API int  ldacBT_encode( HANDLE_LDAC_BT hLdacBt, void *p_pcm, int *pcm_used,
                                unsigned char *p_stream, int *stream_sz, int *frame_num );
+#endif /* _DECODE_ONLY */
+#ifndef _ENCODE_ONLY
+/* for decode */
+/* Initialization of a LDAC handle for decode processing.
+ * The LDAC handle must be allocated by API function ldac_get_handle() prior to calling this
+ * function.
+ * "cm" is configured to channel_mode in LDAC, which is determined by SRC and SNK devices in
+ * Bluetooth transmission.
+ * "sf" is configured to sampling frequency, which is determined by SRC and SNK devices in
+ * Bluetooth transmission.
+ * Reserved arguments must be set to "0".
+ *  Format
+ *      int  ldacBT_init_handle_decode( HANDLE_LDAC_BT hLdacBt, int cm, int sf, int nshift,
+ *                                      int var0, int var1 );
+ *  Arguments
+ *      hLdacBt    HANDLE_LDAC_BT    LDAC handle.
+ *      cm         int               Information of the channel_mode.
+ *      sf         int               Sampling frequency of input LDAC bit stream.
+ *      nshift     int               Reserved, must be "0".
+ *      var0       int               Reserved, must be "0".
+ *      var1       int               Reserved, must be "0".
+ *  Return value
+ *      int : 0 for success, -1 for failure.
+ */
+LDACBT_API int ldacBT_init_handle_decode( HANDLE_LDAC_BT hLdacBt, int cm, int sf,
+                                          int var0, int var1, int var2 );
+
+/* LDAC decode processing.
+ * The LDAC handle must be initialized by API function ldacBT_init_handle_decode() prior to
+ * calling this function.
+ * < Regarding on input "ldac_transport_frame" >
+ *   The valid data size of "ldac_transport_frame" must be set in "stream_bytes".
+ *   Referenced data size of "ldac_transport_frame" for decode processing will be set in
+ *   "used_bytes" on return.
+ *   As a reading once of "ldac_transport_frame" is performed by internal processing with
+ *   looking ahead of two bytes, "LDAC_MAX_NBYTES+2" bytes must be allocated for
+ *   "ldac_transport_frame" (p_bs) in API function caller side.
+ * < Regarding on output PCM signal >
+ *   "fmt" is configured to output pcm audio format.
+ *   The size of output PCM signal will be set to "wrote_bytes". The value of
+ *   "frame sample" * "Number of channels" * "bit length of pcm sample"/8 will be set in normal.
+ *   The first decoded out PCM signal just after initialization will not be present.
+ *
+ *  Format
+ *      int  ldac_decode ( HANDLE_LDAC_BT hLdacBt, unsigned char * p_bs, unsigned char * p_pcm
+ *                         LDACBT_SMPL_FMT_T fmt, int bs_bytes,
+ *                         int *used_bytes, int *wrote_bytes );
+ *  Arguments
+ *      hLdacBt    HANDLE_LDAC_BT    LDAC handle.
+ *      p_bs       unsigned char *   Pointer to "ldac_transport_frame".
+ *      p_pcm      unsigned char *   Decoded out PCM signal sequence.
+ *      fmt        LDACBT_SMPL_FMT_T Audio format type of output pcm.
+ *      bs_bytes    int *            Data size of input "ldac_transport_frame". Unit: Byte.
+ *      used_bytes  int *            Data size of referenced "ldac_transport_frame". Unit: Byte.
+ *      wrote_bytes int *            Size of decoded out PCM signal. Unit: Byte.
+ *  Return value
+ *      int : 0 for success, -1 for failure.
+ */
+LDACBT_API int ldacBT_decode( HANDLE_LDAC_BT hLdacBt, unsigned char *p_bs, unsigned char *p_pcm,
+                              LDACBT_SMPL_FMT_T fmt, int bs_bytes,
+                              int *used_bytes, int *wrote_bytes );
+
+#endif /* _ENCODE_ONLY */
 
 /* Acquisition of previously established error code.
  * The LDAC handle must be allocated by API function ldacBT_get_handle() prior to calling this function.
@@ -388,6 +516,7 @@ LDACBT_API int  ldacBT_get_error_code( HANDLE_LDAC_BT hLdacBt );
 /*    Non Fatal Error (Handle Level) ********************************************/
 #define LDACBT_ERR_NOT_IMPLEMENTED          128
 #define LDACBT_ERR_NON_FATAL_ENCODE         132
+#define LDACBT_ERR_RESTRICTED_BY_NUM_FRAMES 255
 
 /*    Fatal Error ***************************************************************/
 #define LDACBT_ERR_FATAL                    256

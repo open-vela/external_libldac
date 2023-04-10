@@ -1,0 +1,53 @@
+#
+#  Copyright (C) 2013 - 2021 Sony Corporation
+#
+
+
+CC		= gcc
+
+CDEBUGFLAGS	= -O3
+INC_DIR		= ../inc
+SRC_DIR		= ../src
+INCLUDES	= -I. -I./$(INC_DIR) -I../../inc -I./$(SRC_DIR)
+
+CCOPTIONS	= -Wall
+#CCOPTIONS	+= -Wcast-qual -Wshadow
+CCOPTIONS	+= -Wno-long-long
+#CCOPTIONS	+= -g
+#CCOPTIONS	+= -pg
+#CCOPTIONS	+= -ansi
+#CCOPTIONS	+= -pedantic
+#CCOPTIONS	+= -pedantic-errors
+CCOPTIONS	+= -fPIC -fno-merge-constants
+
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API // just commnet
+DEFINES     += -DLDAC_ABR_DYNAMIC_LINK_LDAC_API
+#endif
+
+LIBRARIES   = -lm -L../../gcc/ -lldacBT
+
+LINKER      = $(CC)
+CFLAGS      = $(CCOPTIONS) $(CDEBUGFLAGS) $(INCLUDES) $(DEFINES)
+LDFLAGS     = $(CCOPTIONS) $(CDEBUGFLAGS)
+
+LDACBTABRLIB            = ldacBT_ABR
+
+LDACBTABRLIB_LINKERNAME	= lib$(LDACBTABRLIB).so
+LDACBTABRLIB_SONAME	    = $(LDACBTABRLIB_LINKERNAME).2
+LDACBTABRLIB_SHARED	    = $(LDACBTABRLIB_LINKERNAME).2.0.0
+
+OBJS_LDACBTABRLIB       = $(SRC_DIR)/ldacBT_abr.o
+
+all:$(LDACBTABRLIB)
+
+$(LDACBTABRLIB):$(OBJS_LDACBTABRLIB)
+	$(LINKER) $(LIBRARIES) -fPIC -shared -Wl,--soname=$(LDACBTABRLIB_SONAME) -o $(LDACBTABRLIB_SHARED) $(OBJS_LDACBTABRLIB)
+	ln -sf $(LDACBTABRLIB_SONAME) $(LDACBTABRLIB_LINKERNAME)
+	ln -sf $(LDACBTABRLIB_SHARED) $(LDACBTABRLIB_SONAME)
+	@echo "Loading $@.a ..."
+	ar cru $@.a $(OBJS_LDACBTABRLIB)
+	@echo "done"
+
+clean:
+	rm -f $(OBJS_LDACBTABRLIB) $(LDACBTABRLIB_SHARED) $(LDACBTABRLIB_SONAME) $(LDACBTABRLIB_LINKERNAME) $(LDACBTABRLIB).a *.o core core.*
+

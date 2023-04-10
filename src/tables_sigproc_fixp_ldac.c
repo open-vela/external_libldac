@@ -1,24 +1,15 @@
-/*
- * Copyright (C) 2003 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldac.h"
 
 /***************************************************************************************************
     Window Tables
 ***************************************************************************************************/
+#ifndef _DECODE_ONLY
 DECLFUNC const INT32 *gaa_fwin_ldac[LDAC_NUMLNN];
 static const INT32 sa_fwin_1fs_ldac[LDAC_1FSLSU] = { /* Q30 */
     0x00009de9, 0x00058d10, 0x000f6a9a, 0x001e3503, 0x0031ea03, 0x004a868e, 0x006806db, 0x008a665c,
@@ -72,6 +63,62 @@ static const INT32 sa_fwin_2fs_ldac[LDAC_2FSLSU] = { /* Q30 */
     0x3f6c3f7e, 0x3f7ea62a, 0x3f8fd600, 0x3f9fce56, 0x3fae8e8e, 0x3fbc1618, 0x3fc8646d, 0x3fd37914,
     0x3fdd53a0, 0x3fe5f3af, 0x3fed58ed, 0x3ff38310, 0x3ff871db, 0x3ffc251e, 0x3ffe9cb4, 0x3fffd886,
 };
+#endif /* _DECODE_ONLY */
+#ifndef _ENCODE_ONLY
+DECLFUNC const INT32 *gaa_bwin_ldac[LDAC_NUMLNN];
+static const INT32 sa_bwin_1fs_ldac[LDAC_1FSLSU] = { /* Q30 */
+    0x00009dec, 0x00058e07, 0x000f720a, 0x001e5194, 0x0032381b, 0x004b34e9, 0x00695b2d, 0x008cc1ff,
+    0x00b58467, 0x00e3c16f, 0x01179c29, 0x01513bbb, 0x0190cb70, 0x01d67abe, 0x02227d51, 0x02750b17,
+    0x02ce6040, 0x032ebd44, 0x039666db, 0x0405a5f9, 0x047cc7b9, 0x04fc1d45, 0x0583fbaf, 0x0614bbbf,
+    0x06aeb9b3, 0x075254e6, 0x07ffef6f, 0x08b7ed98, 0x097ab549, 0x0a48ad4d, 0x0b223c74, 0x0c07c897,
+    0x0cf9b568, 0x0df86326, 0x0f042d0e, 0x101d67af, 0x11445efb, 0x1279542f, 0x13bc7b81, 0x150df9a0,
+    0x166de10f, 0x17dc2f4e, 0x1958c9f2, 0x1ae37bab, 0x1c7bf14e, 0x1e21b6f5, 0x1fd4354a, 0x2192af18,
+    0x235c3f4f, 0x252fd778, 0x270c3ee1, 0x28f01285, 0x2ad9c5d9, 0x2cc7a493, 0x2eb7d58a, 0x30a85ea5,
+    0x329729f2, 0x34820bc2, 0x3666c9c4, 0x384322f7, 0x3a14d838, 0x3bd9b537, 0x3d8f998d, 0x3f3481a9,
+    0x40c68f49, 0x4244112e, 0x43ab89d5, 0x44fbb4f8, 0x46338ba6, 0x475246ea, 0x485760e3, 0x4942945f,
+    0x4a13db1b, 0x4acb6aaa, 0x4b69b05c, 0x4bef4c38, 0x4c5d0b51, 0x4cb3e1b0, 0x4cf4e403, 0x4d21414c,
+    0x4d3a3cb1, 0x4d41279d, 0x4d375c4b, 0x4d1e38cb, 0x4cf71a95, 0x4cc35ab0, 0x4c844a6d, 0x4c3b30af,
+    0x4be947c7, 0x4b8fbbbf, 0x4b2fa92c, 0x4aca1c5c, 0x4a6010dd, 0x49f2715d, 0x498217bf, 0x490fcd6b,
+    0x489c4bc8, 0x48283cd9, 0x47b43bef, 0x4740d66f, 0x46ce8ca2, 0x465dd28e, 0x45ef10c9, 0x4582a557,
+    0x4518e473, 0x44b21964, 0x444e8735, 0x43ee6975, 0x4391f4e7, 0x4339581f, 0x42e4bc22, 0x429444f2,
+    0x4248120f, 0x42003ef6, 0x41bce38a, 0x417e147a, 0x4143e3a1, 0x410e6054, 0x40dd97b0, 0x40b194d9,
+    0x408a6138, 0x406804af, 0x404a85c2, 0x4031e9c5, 0x401e34f6, 0x400f6a99, 0x40058d10, 0x40009de9,
+};
+static const INT32 sa_bwin_2fs_ldac[LDAC_2FSLSU] = { /* Q30 */
+    0x0000277b, 0x0001635b, 0x0003db59, 0x00078fee, 0x000c81d1, 0x0012b1f6, 0x001a218d, 0x0022d206,
+    0x002cc50c, 0x0037fc89, 0x00447aa3, 0x005241c1, 0x00615487, 0x0071b5d7, 0x008368d4, 0x009670de,
+    0x00aad196, 0x00c08edd, 0x00d7acd5, 0x00f02fdf, 0x010a1c9f, 0x012577fa, 0x01424716, 0x01608f5d,
+    0x01805679, 0x01a1a25b, 0x01c47933, 0x01e8e177, 0x020ee1e1, 0x0236816f, 0x025fc761, 0x028abb3e,
+    0x02b764d1, 0x02e5cc28, 0x0315f997, 0x0347f5b4, 0x037bc95c, 0x03b17dad, 0x03e91c07, 0x0422ae0f,
+    0x045e3dab, 0x049bd4ff, 0x04db7e71, 0x051d44a3, 0x05613274, 0x05a75300, 0x05efb197, 0x063a59c2,
+    0x0687573e, 0x06d6b5f8, 0x07288209, 0x077cc7b6, 0x07d39369, 0x082cf1ac, 0x0888ef29, 0x08e7989e,
+    0x0948fadb, 0x09ad22bc, 0x0a141d23, 0x0a7df6eb, 0x0aeabce6, 0x0b5a7bd4, 0x0bcd4056, 0x0c4316e6,
+    0x0cbc0bce, 0x0d382b18, 0x0db78089, 0x0e3a178d, 0x0ebffb2e, 0x0f493604, 0x0fd5d223, 0x1065d912,
+    0x10f953b3, 0x11904a33, 0x122ac3fb, 0x12c8c799, 0x136a5aae, 0x140f81d7, 0x14b8409c, 0x15649954,
+    0x16148d14, 0x16c81b95, 0x177f431d, 0x183a0067, 0x18f84e8d, 0x19ba26ed, 0x1a7f8115, 0x1b4852a8,
+    0x1c148f48, 0x1ce42881, 0x1db70db1, 0x1e8d2bf4, 0x1f666e12, 0x2042bc6a, 0x2121fce6, 0x220412e5,
+    0x22e8df3a, 0x23d04018, 0x24ba110f, 0x25a62b0a, 0x2694644b, 0x2784906f, 0x28768074, 0x296a02c3,
+    0x2a5ee33f, 0x2b54eb57, 0x2c4be21a, 0x2d438c59, 0x2e3bacbf, 0x2f3403fa, 0x302c50e2, 0x312450a7,
+    0x321bbeff, 0x33125660, 0x3407d034, 0x34fbe51a, 0x35ee4d23, 0x36dec015, 0x37ccf5af, 0x38b8a5f3,
+    0x39a18968, 0x3a87596b, 0x3b69d070, 0x3c48aa4f, 0x3d23a48c, 0x3dfa7e9b, 0x3eccfa25, 0x3f9adb4c,
+    0x4063e8e4, 0x4127ecb1, 0x41e6b39c, 0x42a00de4, 0x4353cf4b, 0x4401cf3a, 0x44a9e8e9, 0x454bfb6f,
+    0x45e7e9e3, 0x467d9b61, 0x470cfb1b, 0x4795f854, 0x48188664, 0x48949caa, 0x490a3681, 0x49795327,
+    0x49e1f5ad, 0x4a4424d0, 0x4a9feae0, 0x4af55596, 0x4b4475ec, 0x4b8d5ff5, 0x4bd02aac, 0x4c0cefc6,
+    0x4c43cb7f, 0x4c74dc6d, 0x4ca04347, 0x4cc622b6, 0x4ce69f21, 0x4d01de7b, 0x4d180810, 0x4d294458,
+    0x4d35bcc2, 0x4d3d9b8d, 0x4d410b98, 0x4d403839, 0x4d3b4d16, 0x4d3275fe, 0x4d25dec6, 0x4d15b32a,
+    0x4d021ea9, 0x4ceb4c6f, 0x4cd16736, 0x4cb49931, 0x4c950bf2, 0x4c72e85f, 0x4c4e5696, 0x4c277de8,
+    0x4bfe84c3, 0x4bd390ac, 0x4ba6c636, 0x4b7848f4, 0x4b483b79, 0x4b16bf51, 0x4ae3f4fa, 0x4aaffbe8,
+    0x4a7af27e, 0x4a44f611, 0x4a0e22ea, 0x49d69443, 0x499e644f, 0x4965ac38, 0x492c8429, 0x48f3034b,
+    0x48b93fd2, 0x487f4efb, 0x48454517, 0x480b358d, 0x47d132e3, 0x47974ec3, 0x475d9a02, 0x472424a7,
+    0x46eafdf1, 0x46b2345e, 0x4679d5b1, 0x4641eefc, 0x460a8ca2, 0x45d3ba61, 0x459d8357, 0x4567f20a,
+    0x4533106c, 0x44fee7e3, 0x44cb814f, 0x4498e510, 0x44671b0a, 0x44362aae, 0x44061afc, 0x43d6f28a,
+    0x43a8b788, 0x437b6fc9, 0x434f20c1, 0x4323cf90, 0x42f98102, 0x42d03995, 0x42a7fd7f, 0x4280d0ae,
+    0x425ab6cf, 0x4235b351, 0x4211c965, 0x41eefc07, 0x41cd4dfe, 0x41acc1df, 0x418d5a10, 0x416f18cb,
+    0x41520021, 0x413611fc, 0x411b5022, 0x4101bc34, 0x40e957b5, 0x40d22409, 0x40bc2278, 0x40a7542e,
+    0x4093ba3e, 0x408155a5, 0x40702746, 0x40602ff3, 0x40517067, 0x4043e94e, 0x40379b3e, 0x402c86c1,
+    0x4022ac4c, 0x401a0c48, 0x4012a710, 0x400c7cef, 0x40078e25, 0x4003dae2, 0x4001634c, 0x4000277a,
+};
+#endif /* _ENCODE_ONLY */
 
 /***************************************************************************************************
     MDCT/IMDCT Tables
@@ -217,6 +264,7 @@ static const int sa_perm_2fs_ldac[LDAC_2FSLSU] = {
 /***************************************************************************************************
     Normalization Tables
 ***************************************************************************************************/
+#ifndef _DECODE_ONLY
 /* Scale Factor for Spectrum Normalization */
 DECLFUNC const INT32 ga_sf_ldac[LDAC_NIDSF] = { /* Q15 */
     0x00000001, 0x00000002, 0x00000004, 0x00000008,
@@ -228,10 +276,12 @@ DECLFUNC const INT32 ga_sf_ldac[LDAC_NIDSF] = { /* Q15 */
     0x01000000, 0x02000000, 0x04000000, 0x08000000,
     0x10000000, 0x20000000, 0x40000000, 0x7fffffff,
 };
+#endif /* _DECODE_ONLY */
 
 /***************************************************************************************************
     Quantization Tables
 ***************************************************************************************************/
+#ifndef _DECODE_ONLY
 /* Quantize Factor for Spectrum/Residual Quantization */
 DECLFUNC const INT32 ga_qf_ldac[LDAC_NIDWL] = { /* Q16 */
     0x00008000, 0x00018000, 0x00038000, 0x00078000,
@@ -239,6 +289,7 @@ DECLFUNC const INT32 ga_qf_ldac[LDAC_NIDWL] = { /* Q16 */
     0x00ff8000, 0x01ff8000, 0x03ff8000, 0x07ff8000,
     0x0fff8000, 0x1fff8000, 0x3fff8000, 0x7fff8000,
 };
+#endif /* _DECODE_ONLY */
 
 /* Inverse of Quantize Factor for Spectrum/Residual Quantization */
 DECLFUNC const INT32 ga_iqf_ldac[LDAC_NIDWL] = { /* Q31 */
@@ -248,6 +299,7 @@ DECLFUNC const INT32 ga_iqf_ldac[LDAC_NIDWL] = { /* Q31 */
     0x00080040, 0x00040010, 0x00020004, 0x00010001,
 };
 
+#ifndef _DECODE_ONLY
 /* Inverse of Scale Factor for Residual Normalization */
 DECLFUNC const INT32 ga_irsf_ldac[LDAC_NIDWL] = { /* Q15 */
     0x00007f80, 0x00017e80, 0x00037c80, 0x00077880,
@@ -255,8 +307,19 @@ DECLFUNC const INT32 ga_irsf_ldac[LDAC_NIDWL] = { /* Q15 */
     0x00fe8080, 0x01fd8080, 0x03fb8080, 0x07f78080,
     0x0fef8080, 0x1fdf8080, 0x3fbf8080, 0x7f7f8080,
 };
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/* Scale Factor for Residual Normalization */
+DECLFUNC const INT32 ga_rsf_ldac[LDAC_NIDWL] = { /* Q31 */
+    0x80000000, 0x2aaaaaab, 0x12492492, 0x08888889,
+    0x04210842, 0x02082082, 0x01020408, 0x00808081,
+    0x00402010, 0x00200802, 0x00100200, 0x00080080,
+    0x00040020, 0x00020008, 0x00010002, 0x00008001,
+};
+#endif /* _ENCODE_ONLY */
 
+#ifndef _DECODE_ONLY
 /***************************************************************************************************
     Set MDCT Tables
 ***************************************************************************************************/
@@ -280,5 +343,31 @@ int nlnn)
 
     return;
 }
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/***************************************************************************************************
+    Set IMDCT Tables
+***************************************************************************************************/
+DECLFUNC void set_imdct_table_ldac(
+int nlnn)
+{
+    int index = nlnn - LDAC_1FSLNN;
+
+    if (nlnn == LDAC_1FSLNN) {
+        gaa_bwin_ldac[index] = sa_bwin_1fs_ldac;
+        gaa_wcos_ldac[index] = sa_wcos_1fs_ldac;
+        gaa_wsin_ldac[index] = sa_wsin_1fs_ldac;
+        gaa_perm_ldac[index] = sa_perm_1fs_ldac;
+    }
+    else if (nlnn == LDAC_2FSLNN) {
+        gaa_bwin_ldac[index] = sa_bwin_2fs_ldac;
+        gaa_wcos_ldac[index] = sa_wcos_2fs_ldac;
+        gaa_wsin_ldac[index] = sa_wsin_2fs_ldac;
+        gaa_perm_ldac[index] = sa_perm_2fs_ldac;
+    }
+
+    return;
+}
+#endif /* _ENCODE_ONLY */
 

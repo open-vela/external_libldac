@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2003 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #ifndef _LDAC_H
 #define _LDAC_H
@@ -22,6 +12,8 @@
 
 
 
+#ifdef _ENCODE_ONLY
+#endif /* _ENCODE_ONLY */
 
 
 /***************************************************************************************************
@@ -100,6 +92,8 @@
 /** Band Info **/
 #define LDAC_NBANDBITS         4
 #define LDAC_BAND_OFFSET       2
+#define LDAC_EXTMODEBITS       2
+#define LDAC_EXTSIZEBITS       7
 /** Gradient Data **/
 #define LDAC_GRADMODEBITS      2
 #define LDAC_GRADOSBITS        5
@@ -188,6 +182,7 @@ struct _audio_channel_sub_ldac {
 struct _audio_channel_ldac {
     int ich;
     int frmana_cnt;
+    int ext_size;
     int sfc_mode;
     int sfc_bitlen;
     int sfc_offset;
@@ -209,6 +204,8 @@ struct _audio_block_ldac {
     int blk_nchs;
     int nbands;
     int nqus;
+    int ext_flag;
+    int ext_mode;
     int grad_mode;
     int grad_qu_l;
     int grad_qu_h;
@@ -258,6 +255,7 @@ typedef struct {
     unsigned char len;
 } HC;
 
+#ifndef _DECODE_ONLY
 /* Huffman Encoding Structure */
 typedef struct _hcenc_ldac HCENC;
 struct _hcenc_ldac {
@@ -266,7 +264,20 @@ struct _hcenc_ldac {
     unsigned char wl;
     unsigned char mask;
 };
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/* Huffman Decoding Structure */
+typedef struct _hcdec_ldac HCDEC;
+struct _hcdec_ldac {
+    const HC *p_tbl;
+    unsigned char ncodes;
+    unsigned char wl;
+    unsigned char mask;
+    unsigned char maxlen;
+    const unsigned char *p_dec;
+};
+#endif /* _ENCODE_ONLY */
 
 /*******************************************************************************
     Function Declarations

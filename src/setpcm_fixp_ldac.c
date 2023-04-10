@@ -1,21 +1,12 @@
-/*
- * Copyright (C) 2003 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldac.h"
 
+#ifndef _DECODE_ONLY
 /***************************************************************************************************
     Subfunction: Convert from 16bit Signed Integer PCM
 ***************************************************************************************************/
@@ -126,5 +117,132 @@ int nlnn)
 
     return;
 }
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/***************************************************************************************************
+    Subfunction: Convert to 16bit Signed Integer PCM
+***************************************************************************************************/
+__inline static void int_to_byte_data_s16_ldac(
+INT32 *p_in,
+char *p_out,
+int nsmpl)
+{
+    int i;
+    INT32 val;
+    short *p_s;
+
+    p_s = (short *)p_out;
+    for (i = 0; i < nsmpl; i++) {
+        val = rsft_ro_ldac(*p_in++, LDAC_Q_SETPCM);
+        if (val > (short)0x7fff) {
+            val = (short)0x7fff;
+        }
+        else if (val < (short)0x8000) {
+            val = (short)0x8000;
+        }
+        *p_s++ = (short)val;
+    }
+
+    return;
+}
+
+/***************************************************************************************************
+    Subfunction: Convert to 24bit Signed Integer PCM
+***************************************************************************************************/
+__inline static void int_to_byte_data_s24_ldac(
+INT32 *p_in,
+char *p_out,
+int nsmpl)
+{
+    int i;
+    INT32 val;
+    char *p_c;
+
+    p_c = (char *)p_out;
+    for (i = 0; i < nsmpl; i++) {
+        val = rsft_ro_ldac(*p_in++, LDAC_Q_SETPCM-8);
+        if (val > (int)0x007fffff) {
+            val = (int)0x007fffff;
+        }
+        else if (val < (int)0xff800000) {
+            val = (int)0xff800000;
+        }
+#ifdef LDAC_HOST_ENDIAN_LITTLE
+        *p_c++ = (char)(val);
+        *p_c++ = (char)(val >> 8);
+        *p_c++ = (char)(val >> 16);
+#else /* LDAC_HOST_ENDIAN_LITTLE */
+        *p_c++ = (char)(val >> 16);
+        *p_c++ = (char)(val >> 8);
+        *p_c++ = (char)(val);
+#endif /* LDAC_HOST_ENDIAN_LITTLE */
+    }
+
+    return;
+}
+
+/***************************************************************************************************
+    Subfunction: Convert to 32bit Signed Integer PCM
+***************************************************************************************************/
+__inline static void int_to_byte_data_s32_ldac(
+INT32 *p_in,
+char *p_out,
+int nsmpl)
+{
+    int i;
+    INT64 val2;
+    int *p_l;
+
+    p_l = (int *)p_out;
+    for (i = 0; i < nsmpl; i++) {
+        val2 = lsft_ldac((INT64)*p_in++, 16-LDAC_Q_SETPCM);
+        if (val2 > (int)0x7fffffff) {
+            val2 = (int)0x7fffffff;
+        }
+        else if (val2 < (int)0x80000000) {
+            val2 = (int)0x80000000;
+        }
+        *p_l++ = (int)val2;
+    }
+
+    return;
+}
+
+/***************************************************************************************************
+    Set Output PCM
+***************************************************************************************************/
+DECLFUNC void set_output_pcm_ldac(
+SFINFO *p_sfinfo,
+char *pp_pcm[],
+LDAC_SMPL_FMT_T format,
+int nlnn)
+{
+    int ich;
+    int nchs = p_sfinfo->cfg.ch;
+    int nsmpl = npow2_ldac(nlnn);
+    INT32 *p_time;
+
+    if (format == LDAC_SMPL_FMT_S16) {
+        for (ich = 0; ich < nchs; ich++) {
+            p_time = p_sfinfo->ap_ac[ich]->p_acsub->a_time;
+            int_to_byte_data_s16_ldac(p_time, pp_pcm[ich], nsmpl);
+        }
+    }
+    else if (format == LDAC_SMPL_FMT_S24) {
+        for (ich = 0; ich < nchs; ich++) {
+            p_time = p_sfinfo->ap_ac[ich]->p_acsub->a_time;
+            int_to_byte_data_s24_ldac(p_time, pp_pcm[ich], nsmpl);
+        }
+    }
+    else if (format == LDAC_SMPL_FMT_S32) {
+        for (ich = 0; ich < nchs; ich++) {
+            p_time = p_sfinfo->ap_ac[ich]->p_acsub->a_time;
+            int_to_byte_data_s32_ldac(p_time, pp_pcm[ich], nsmpl);
+        }
+    }
+
+    return;
+}
+#endif /* _ENCODE_ONLY */
 

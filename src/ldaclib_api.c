@@ -1,18 +1,8 @@
-/*
- * Copyright (C) 2003 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2003 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldaclib.h"
 #include "ldac.h"
@@ -395,6 +385,7 @@ int *p_frame_status)
 }
 
 
+#ifndef _DECODE_ONLY
 /***************************************************************************************************
     Set Frame Header
 ***************************************************************************************************/
@@ -441,8 +432,74 @@ int frame_status)
 
     return LDAC_S_OK;
 }
+#endif /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/***************************************************************************************************
+    Get Frame Header
+***************************************************************************************************/
+DECLSPEC LDAC_RESULT ldaclib_get_frame_header(
+HANDLE_LDAC hData,
+unsigned char *p_stream,
+int *p_smplrate_id,
+int *p_chconfig_id,
+int *p_frame_length,
+int *p_frame_status)
+{
+    int status;
 
+    status = unpack_frame_header_ldac(p_smplrate_id, p_chconfig_id, p_frame_length, p_frame_status,
+            (STREAM *)p_stream);
+    if (!status) {
+        hData->error_code = LDAC_ERR_ILL_SYNCWORD;
+        return LDAC_E_FAIL;
+    }
+
+    return LDAC_S_OK;
+}
+
+/***************************************************************************************************
+    Check Frame Header
+***************************************************************************************************/
+DECLSPEC LDAC_RESULT ldaclib_check_frame_header(
+HANDLE_LDAC hData,
+int smplrate_id,
+int chconfig_id)
+{
+    CFG *p_cfg = &hData->sfinfo.cfg;
+
+    if (!ldaclib_assert_sampling_rate_index(smplrate_id)) {
+        hData->error_code = LDAC_ERR_ASSERT_SAMPLING_RATE;
+        return LDAC_E_FAIL;
+    }
+
+    if (!ldaclib_assert_supported_sampling_rate_index(smplrate_id)) {
+        hData->error_code = LDAC_ERR_ASSERT_SUP_SAMPLING_RATE;
+        return LDAC_E_FAIL;
+    }
+
+    if (!ldaclib_assert_channel_config_index(chconfig_id)) {
+        hData->error_code = LDAC_ERR_ASSERT_CHANNEL_CONFIG;
+        return LDAC_E_FAIL;
+    }
+
+    /* Check Sampling Rate Index between Frames */
+    if (p_cfg->smplrate_id != smplrate_id) {
+        hData->error_code = LDAC_ERR_CHECK_SAMPLING_RATE;
+        return LDAC_E_FAIL;
+    }
+
+    /* Check Channel Config Index between Frames */
+    if (p_cfg->chconfig_id != chconfig_id) {
+        hData->error_code = LDAC_ERR_CHECK_CHANNEL_CONFIG;
+        return LDAC_E_FAIL;
+    }
+
+    return LDAC_S_OK;
+}
+#endif /* _ENCODE_ONLY */
+
+#ifndef _DECODE_ONLY
 /***************************************************************************************************
     Encoder API Functions
 ***************************************************************************************************/
@@ -456,20 +513,6 @@ int frame_status)
 static const int saa_encode_setting_ldac[LDAC_ENC_NSETTING][LDAC_ENC_NPROPERTY] = {
     {0, 512,  17,   0,  28,  44,   8,  24,   0},
     {0, 256,  17,   0,  28,  44,   6,  22,   0},
-#ifdef MODIFY_LDAC_ENC_SETTING_FOR_ABR_DEBUG  // See file "ldacBT_abr.h" for description
-    {0, 164,  16,   0,  18,  32,   7,  23,   0},
-    {0, 110,   8,   0,  16,  32,  10,  31,   0},
-    {0,  82,   6,   0,  16,  32,  12,  31,   0},
-    {0,  66,   4,   0,  14,  26,  12,  31,   0},
-    {0,  54,   2,   0,  14,  26,  12,  31,   0},
-    {0,  46,   2,   1,  10,  26,  12,  31,   0},
-    {0,  40,   2,   2,  10,  26,  12,  31,   0},
-    {0,  36,   2,   2,   8,  26,  12,  31,   0},
-    {0,  32,   2,   2,   8,  26,  16,  31,   0},
-    {0,  30,   2,   2,   4,  26,  16,  31,   0},
-    {0,  26,   2,   3,   4,  26,  16,  31,   0},
-    {0,  24,   2,   3,   4,  26,  16,  31,   0},
-#else
     {0, 164,  16,   0,  18,  32,   7,  23,   0},
     {0, 110,  13,   0,  16,  32,  10,  31,   0},
     {0,  82,  12,   0,  16,  32,  12,  31,   0},
@@ -482,7 +525,6 @@ static const int saa_encode_setting_ldac[LDAC_ENC_NSETTING][LDAC_ENC_NPROPERTY] 
     {0,  30,   5,   2,   4,  26,  16,  31,   0},
     {0,  26,   4,   3,   4,  26,  16,  31,   0},
     {0,  24,   3,   3,   4,  26,  16,  31,   0},
-#endif
     {0,  22,   2,   3,   4,  26,  16,  31,   0},
 };
 
@@ -754,8 +796,111 @@ int *p_nbytes_used)
 
     return result;
 }
+#endif /* _DECODE_ONLY */
 
 
+#ifndef _ENCODE_ONLY
+/***************************************************************************************************
+    Decoder API Functions
+***************************************************************************************************/
+
+/***************************************************************************************************
+    Initialize
+***************************************************************************************************/
+DECLSPEC LDAC_RESULT ldaclib_init_decode(
+HANDLE_LDAC hData,
+int nlnn_shift)
+{
+    SFINFO *p_sfinfo = &hData->sfinfo;
+    LDAC_RESULT result;
+
+    if (ldaclib_check_nlnn_shift(p_sfinfo->cfg.smplrate_id, nlnn_shift) != LDAC_S_OK) {
+        hData->error_code = LDAC_ERR_ASSERT_NSHIFT;
+        return LDAC_E_FAIL;
+    }
+
+    ldaclib_get_nlnn(p_sfinfo->cfg.smplrate_id, &hData->nlnn);
+    hData->nlnn += nlnn_shift;
+
+    set_imdct_table_ldac(hData->nlnn);
+
+
+    result = init_decode_ldac(p_sfinfo);
+    if (result != LDAC_S_OK) {
+        hData->error_code = LDAC_ERR_DEC_INIT_ALLOC;
+        return LDAC_E_FAIL;
+    }
+
+    return LDAC_S_OK;
+}
+
+/***************************************************************************************************
+    Free
+***************************************************************************************************/
+DECLSPEC LDAC_RESULT ldaclib_free_decode(
+HANDLE_LDAC hData)
+{
+    if (hData->sfinfo.p_mempos == NULL) {
+        free_decode_ldac(&hData->sfinfo);
+    }
+
+    return LDAC_S_OK;
+}
+
+/***************************************************************************************************
+    Decode
+***************************************************************************************************/
+DECLSPEC LDAC_RESULT ldaclib_decode(
+HANDLE_LDAC hData,
+unsigned char *p_stream,
+char *ap_pcm[],
+int frame_length,
+int *p_nbytes_used,
+LDAC_SMPL_FMT_T sample_format)
+{
+    SFINFO *p_sfinfo = &hData->sfinfo;
+    LDAC_RESULT result = LDAC_S_OK;
+    int loc = 0;
+    int error_code;
+
+
+    if (frame_length < p_sfinfo->cfg.frame_length) {
+        hData->error_code = LDAC_ERR_INPUT_BUFFER_SIZE;
+        return LDAC_E_FAIL;
+    }
+
+    if (!ldaclib_assert_sample_format(sample_format)) {
+        hData->error_code = LDAC_ERR_ILL_SMPL_FORMAT;
+        return LDAC_E_FAIL;
+    }
+
+    error_code = unpack_raw_data_frame_ldac(p_sfinfo, (STREAM *)p_stream, &loc, p_nbytes_used);
+    if (LDAC_ERROR(error_code)) {
+        hData->error_code = error_code;
+        return LDAC_E_FAIL;
+    }
+
+    decode_ldac(p_sfinfo);
+
+#ifndef NONPCM_OUTPUT_FOR_SNK_TEST_TOOL
+    proc_imdct_ldac(p_sfinfo, hData->nlnn);
+#endif
+
+    error_code = p_sfinfo->error_code;
+    if (LDAC_ERROR(error_code) && !LDAC_FATAL_ERROR(error_code)) {
+        result = LDAC_S_FALSE;
+    }
+
+#ifdef NONPCM_OUTPUT_FOR_SNK_TEST_TOOL
+    return result;
+#endif
+    if (LDAC_SUCCEEDED(result)) {
+        set_output_pcm_ldac(p_sfinfo, ap_pcm, sample_format, hData->nlnn);
+    }
+
+    return result;
+}
+#endif /* _ENCODE_ONLY */
 
 
 /***************************************************************************************************

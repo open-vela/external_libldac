@@ -1,25 +1,19 @@
-/*
- * Copyright (C) 2014 - 2017 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2014 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldacBT_abr.h"
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+#include <dlfcn.h>
+#include <errno.h>
+#endif
 
-#define LDAC_ABR_OBSERVING_TIME_MS 500 /* [ms] the time length for storing Tx Queue Depth */
+#define LDAC_ABR_OBSERVING_TIME_MS 500   /* [ms] the time length for storing Tx Queue Depth */
 #define LDAC_ABR_PENALTY_MAX 4
 
 /* Number of observing count to judge whether EQMID may be increase.
@@ -54,8 +48,33 @@ typedef struct _tx_queue_param
     unsigned int idx;
 } TxQ_INFO;
 
+
+/* The LDAC encoder api functions to use */
+typedef int (*tLDACBT_ALTER_EQMID_PRIORITY)(HANDLE_LDAC_BT hLdacBt, int priority);
+typedef int (*tLDACBT_GET_EQMID)(HANDLE_LDAC_BT hLdacBt);
+typedef int (*tLDACBT_GET_ERR)(HANDLE_LDAC_BT hLdacBt);
+
+typedef struct _ldacbt_api_param
+{
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+    const char *lib_name;
+    void *lib_handle;
+#endif
+    tLDACBT_ALTER_EQMID_PRIORITY alter_eqmid_priority;
+    tLDACBT_GET_EQMID            get_eqmid;
+    tLDACBT_GET_ERR              get_error_code;
+} LDACBT_API_PARAMS, * HANDLE_LDACBT_API;
+
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+static int open_lib(HANDLE_LDACBT_API hLdacBtApi, const char *lib_name );
+#endif
+
+static int load_ldacbt_api_functions(HANDLE_LDACBT_API hLdacBtApi);
+
+
 typedef struct _ldacbt_abr_param
 {
+    LDACBT_API_PARAMS ldacBtApi;
     TxQ_INFO TxQD_Info;
     int  cntToIncQuality;
     int  nSteadyState;
@@ -71,12 +90,22 @@ typedef struct _ldacbt_abr_param
 #define clear_data(ptr, n) memset(ptr, 0, n)
 
 #ifdef LOCAL_DEBUG
+#ifdef ANDROID
 #include <android/log.h>
 #define ABRDBG(fmt, ... ) \
     __android_log_print( ANDROID_LOG_INFO, "******** LDAC ABR ********",\
             "%s@%s:%d::"fmt, __func__, __FILE__, __LINE__, ## __VA_ARGS__ )
+#define ABRDBG_NOINFO(fmt, ... ) \
+    __android_log_print( ANDROID_LOG_INFO, "******** LDAC ABR ********",\
+            fmt, ## __VA_ARGS__ )
 #else
-#define ABRDBG(fmt, ...)
+/* TBD */
+#define ABRDBG( fmt, ... )
+#define ABRDBG_NOINFO( fmt, ... )
+#endif
+#else
+#define ABRDBG( fmt, ... ) 
+#define ABRDBG_NOINFO( fmt, ... ) 
 #endif /* LOCAL_DEBUG */
 
 /* A table for converting EQMID to abrQualityModeID which is sorted in descending order by bit rate.
@@ -93,15 +122,29 @@ static const int sizeOfEqmidToBitrateSortedIdTable = (int)(sizeof(aEqmidToAbrQua
                                                      / sizeof(aEqmidToAbrQualityModeID[0]));
 
 /* Get LDAC ABR handle */
-HANDLE_LDAC_ABR ldac_ABR_get_handle(void)
+HANDLE_LDAC_ABR ldac_ABR_get_handle(const char *libpath)
 {
     HANDLE_LDAC_ABR hLdacAbr;
     ABRDBG( "" );
-    if ((hLdacAbr = (HANDLE_LDAC_ABR)malloc(sizeof(LDAC_ABR_PARAMS))) == NULL) {
+    if ((hLdacAbr = (HANDLE_LDAC_ABR)malloc(sizeof(LDAC_ABR_PARAMS))) == NULL){
         ABRDBG( "[ERR] Failed to allocate memory for handle." );
         return NULL;
     }
-    hLdacAbr->TxQD_Info.pHist = NULL;
+    clear_data( hLdacAbr, sizeof(LDAC_ABR_PARAMS) );
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+    if (libpath != NULL) {
+        if (open_lib( &hLdacAbr->ldacBtApi, libpath ) < 0) {
+            ABRDBG( "[ERR] Failed to open shared library \"%s\".", libpath );
+            ldac_ABR_free_handle(hLdacAbr);
+            return NULL;
+        }
+    }
+#endif
+    if( load_ldacbt_api_functions(&hLdacAbr->ldacBtApi) != 0 ){
+        ldac_ABR_free_handle(hLdacAbr);
+        return NULL;
+    }
+
     return hLdacAbr;
 }
 
@@ -109,26 +152,32 @@ HANDLE_LDAC_ABR ldac_ABR_get_handle(void)
 void ldac_ABR_free_handle(HANDLE_LDAC_ABR hLdacAbr)
 {
     ABRDBG( "" );
-    if (hLdacAbr != NULL) {
-        if (hLdacAbr->TxQD_Info.pHist) {
+    if (hLdacAbr != NULL){
+        if (hLdacAbr->TxQD_Info.pHist){
             free(hLdacAbr->TxQD_Info.pHist);
         }
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+        if (hLdacAbr->ldacBtApi.lib_handle != NULL) {
+            dlclose(hLdacAbr->ldacBtApi.lib_handle);
+            hLdacAbr->ldacBtApi.lib_handle = NULL;
+        }
+#endif
         free(hLdacAbr);
     }
 }
 
 /* Initialize LDAC ABR */
-int ldac_ABR_Init( HANDLE_LDAC_ABR hLdacAbr, unsigned int interval_ms )
+int ldac_ABR_Init(HANDLE_LDAC_ABR hLdacAbr, unsigned int interval_ms)
 {
     ABRDBG( "hLdacAbr:0x%x, interval_ms:%u", (unsigned int)hLdacAbr, interval_ms );
     if (hLdacAbr == NULL) return -1;
     if (interval_ms == 0) return -1;
     if (interval_ms > LDAC_ABR_OBSERVING_TIME_MS) return -1;
 
-    hLdacAbr->numToEvaluate = LDAC_ABR_OBSERVING_TIME_MS / interval_ms;
-    hLdacAbr->TxQD_Info.sum = 0;
-    hLdacAbr->TxQD_Info.cnt = 0;
-    hLdacAbr->TxQD_Info.idx = 0;
+    hLdacAbr->numToEvaluate    = LDAC_ABR_OBSERVING_TIME_MS / interval_ms;
+    hLdacAbr->TxQD_Info.sum    = 0;
+    hLdacAbr->TxQD_Info.cnt    = 0;
+    hLdacAbr->TxQD_Info.idx    = 0;
     hLdacAbr->TxQD_Info.szHist = hLdacAbr->numToEvaluate + 1;
     if (hLdacAbr->TxQD_Info.pHist) free(hLdacAbr->TxQD_Info.pHist);
     if ((hLdacAbr->TxQD_Info.pHist =
@@ -138,7 +187,7 @@ int ldac_ABR_Init( HANDLE_LDAC_ABR hLdacAbr, unsigned int interval_ms )
     clear_data(hLdacAbr->TxQD_Info.pHist, hLdacAbr->TxQD_Info.szHist * sizeof(unsigned char));
 
     hLdacAbr->nSteadyState = 0;
-    hLdacAbr->nPenalty = 1;
+    hLdacAbr->nPenalty     = 1;
     hLdacAbr->abrQualityModeIdSteady = aEqmidToAbrQualityModeID[LDACBT_EQMID_HQ];
     hLdacAbr->cntToIncQuality = LDAC_ABR_OBSERVING_COUNT_FOR_INIT;
     /* thresholds */
@@ -168,16 +217,17 @@ int ldac_ABR_set_thresholds( HANDLE_LDAC_ABR hLdacAbr, unsigned int thCritical,
 int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
               unsigned int TxQueueDepth, unsigned int flagEnable)
 {
+    HANDLE_LDACBT_API hLdacBtApi;
     int nStepsToChangeEQMID, abrQualityModeID, eqmid, i;
     unsigned int TxQD_curr, TxQD_prev;
 #ifdef LOCAL_DEBUG
     int qd, TxQ; // for debug
 #endif
-
     if (hLDAC == NULL) return -1;
     if (hLdacAbr == NULL) return -1;
 
-    eqmid = ldacBT_get_eqmid(hLDAC);
+    hLdacBtApi = &hLdacAbr->ldacBtApi;
+    eqmid = hLdacBtApi->get_eqmid(hLDAC);
     abrQualityModeID = -1;
     if ((LDACBT_EQMID_HQ <= eqmid) && (eqmid < sizeOfEqmidToBitrateSortedIdTable)) {
         abrQualityModeID = aEqmidToAbrQualityModeID[eqmid];
@@ -191,12 +241,15 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
 
     /* update */
     TxQD_curr = TxQueueDepth;
-    if ((i = hLdacAbr->TxQD_Info.idx - 1) < 0 ) i = hLdacAbr->TxQD_Info.szHist - 1;
+    if ((i=hLdacAbr->TxQD_Info.idx-1)<0)
+        i = hLdacAbr->TxQD_Info.szHist-1;
+    
     TxQD_prev = hLdacAbr->TxQD_Info.pHist[i];
 
     hLdacAbr->TxQD_Info.sum -= hLdacAbr->TxQD_Info.pHist[hLdacAbr->TxQD_Info.idx];
     hLdacAbr->TxQD_Info.pHist[hLdacAbr->TxQD_Info.idx] = (unsigned char)TxQD_curr;
-    if (++hLdacAbr->TxQD_Info.idx >= hLdacAbr->TxQD_Info.szHist) hLdacAbr->TxQD_Info.idx = 0;
+    if (++hLdacAbr->TxQD_Info.idx >= hLdacAbr->TxQD_Info.szHist)
+        hLdacAbr->TxQD_Info.idx=0;
 
     hLdacAbr->TxQD_Info.sum += TxQD_curr;
     ++hLdacAbr->TxQD_Info.cnt;
@@ -246,7 +299,6 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
             qd += (hLdacAbr->cntToIncQuality *1000);
             qd += (hLdacAbr->nSteadyState);
 #endif
-
             if (hLdacAbr->TxQD_Info.sum == 0) {
                 if (--hLdacAbr->cntToIncQuality <= 0) {
                     ABRDBG("inc1: %d, %d, %d", TxQ, qd, ave10);
@@ -272,15 +324,16 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
         ABRDBG("Nothing %d, hLdacAbr->TxQD_Info.cnt %u", TxQ, hLdacAbr->TxQD_Info.cnt);
     }
 #endif
+
     if (flagEnable) {
         if (nStepsToChangeEQMID) {
             int abrQualityModeIDNew;
             if (nStepsToChangeEQMID < 0) {
                 for (i = 0; i > nStepsToChangeEQMID; --i) {
-                    if (ldacBT_alter_eqmid_priority(hLDAC, LDACBT_EQMID_INC_CONNECTION)) {
+                    if (hLdacBtApi->alter_eqmid_priority(hLDAC, LDACBT_EQMID_INC_CONNECTION)) {
 #ifdef LOCAL_DEBUG
                         int err;
-                        err = ldacBT_get_error_code(hLDAC);
+                        err = hLdacBtApi->get_error_code(hLDAC);
                         ABRDBG("Info@%d : %d ,%d, %d", __LINE__,
                                LDACBT_API_ERR(err), LDACBT_HANDLE_ERR(err), LDACBT_BLOCK_ERR(err));
 #endif
@@ -288,7 +341,7 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
                     }
                 }
 
-                eqmid = ldacBT_get_eqmid(hLDAC);
+                eqmid = hLdacBtApi->get_eqmid(hLDAC);
                 abrQualityModeIDNew = abrQualityModeID;
                 if (eqmid >= 0) {
                     if (eqmid < sizeOfEqmidToBitrateSortedIdTable) {
@@ -299,23 +352,23 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
                 if (hLdacAbr->nSteadyState < LDAC_ABR_NUM_STEADY_STATE_TO_JUDGE_STEADY) {
                     hLdacAbr->abrQualityModeIdSteady = abrQualityModeIDNew - 1;
                     if (hLdacAbr->abrQualityModeIdSteady < 0) hLdacAbr->abrQualityModeIdSteady = 0;
-                    hLdacAbr->nPenalty *= 2;
-                    if(hLdacAbr->nPenalty > LDAC_ABR_PENALTY_MAX) {
-                        hLdacAbr->nPenalty = LDAC_ABR_PENALTY_MAX; // MAX PENALTY
+                    hLdacAbr->nPenalty*=2;
+                    if (hLdacAbr->nPenalty > LDAC_ABR_PENALTY_MAX) {
+                        hLdacAbr->nPenalty=LDAC_ABR_PENALTY_MAX; // MAX PENALTY
                     }
                 }
             }
             else {
-                if (ldacBT_alter_eqmid_priority( hLDAC, LDACBT_EQMID_INC_QUALITY )) {
+                if (hLdacBtApi->alter_eqmid_priority( hLDAC, LDACBT_EQMID_INC_QUALITY )) {
 #ifdef LOCAL_DEBUG
                     int err;
-                    err = ldacBT_get_error_code(hLDAC);
+                    err = hLdacBtApi->get_error_code(hLDAC);
                     ABRDBG("Info@%d : %d ,%d, %d", __LINE__,
                             LDACBT_API_ERR(err), LDACBT_HANDLE_ERR(err), LDACBT_BLOCK_ERR(err));
 #endif
                     ;// EQMID was already the ID of the highest sound quality.
                 }
-                eqmid = ldacBT_get_eqmid(hLDAC);
+                eqmid = hLdacBtApi->get_eqmid(hLDAC);
                 abrQualityModeIDNew = abrQualityModeID;
                 if (eqmid >= 0) {
                     if (eqmid < sizeOfEqmidToBitrateSortedIdTable) {
@@ -352,4 +405,73 @@ int ldac_ABR_Proc( HANDLE_LDAC_BT hLDAC, HANDLE_LDAC_ABR hLdacAbr,
 #endif
 
     return eqmid;
+}
+
+
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+static void *load_func(void *lib_handle, const char* func_name)
+{
+    void *func_ptr = dlsym(lib_handle, func_name);
+    if(func_ptr == NULL){
+        ABRDBG("[ERR] cannot find function '%s' in the library.\n", func_name);
+        return NULL;
+    }
+    return func_ptr;
+}
+
+static int open_lib(HANDLE_LDACBT_API hLdacBtApi, const char *lib_name )
+{
+    if( hLdacBtApi == NULL ){
+        ABRDBG("[ERR] handle is NULL");
+        return -1;
+    }
+    if( lib_name == NULL ){
+        ABRDBG("[ERR] lib_name is NULL");
+        return -1;
+    }
+    // open library
+    hLdacBtApi->lib_handle = dlopen(lib_name, RTLD_NOW);
+    if(hLdacBtApi->lib_handle == NULL){
+#ifdef LOCAL_DEBUG
+        char buffer_str[1024];
+        strerror_r(errno, buffer_str, sizeof(buffer_str));
+        ABRDBG("[ERR] cannot open library '%s': errno = %d (%s)\n",
+                lib_name, errno, buffer_str);
+#endif
+        return -1;
+    }
+    return 0;
+}
+#endif /* LDAC_ABR_DYNAMIC_LINK_LDAC_API */
+
+// Load functions
+static int load_ldacbt_api_functions(HANDLE_LDACBT_API hLdacBtApi)
+{
+    hLdacBtApi->alter_eqmid_priority =
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+      load_func(hLdacBtApi->lib_handle, "ldacBT_alter_eqmid_priority");
+#else
+      ldacBT_alter_eqmid_priority;
+#endif
+
+    hLdacBtApi->get_eqmid =
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+      load_func(hLdacBtApi->lib_handle, "ldacBT_get_eqmid");
+#else
+      ldacBT_get_eqmid;
+#endif
+
+    hLdacBtApi->get_error_code =
+#ifdef LDAC_ABR_DYNAMIC_LINK_LDAC_API
+      load_func(hLdacBtApi->lib_handle, "ldacBT_get_error_code");
+#else
+      ldacBT_get_error_code;
+#endif
+
+    if( (hLdacBtApi->alter_eqmid_priority == NULL) ||
+        (hLdacBtApi->get_eqmid == NULL) ||
+        (hLdacBtApi->get_error_code == NULL) ){
+        return -1;
+    }
+    return 0;
 }

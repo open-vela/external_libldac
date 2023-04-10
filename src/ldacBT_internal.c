@@ -1,23 +1,13 @@
-/*
- * Copyright (C) 2013 - 2016 Sony Corporation
+/*******************************************************************************
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (C) 2013 - 2021 Sony Corporation
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ ******************************************************************************/
 
 #include "ldacBT_internal.h"
 
 
-
+#ifndef    _DECODE_ONLY
 enum {
     /* 2-DH5 */
                      LDACBT_2DH5_02,  LDACBT_2DH5_03,  LDACBT_2DH5_04,  LDACBT_2DH5_05,
@@ -68,6 +58,7 @@ DECLFUNC const LDACBT_CONFIG tbl_ldacbt_config[] = {
     { LDACBT_2DH5_14,    14,     46,    23},
 };
 
+#endif    /* _DECODE_ONLY */
 
 /* Clear LDAC handle parameters */
 DECLFUNC void ldacBT_param_clear(HANDLE_LDAC_BT hLdacBT)
@@ -89,6 +80,8 @@ DECLFUNC void ldacBT_param_clear(HANDLE_LDAC_BT hLdacBT)
     hLdacBT->pcm.ch = 0;
     hLdacBT->pcm.fmt = LDACBT_SMPL_FMT_S24;
     hLdacBT->nshift = 0;
+#ifndef _DECODE_ONLY
+#endif /* _DECODE_ONLY */
     hLdacBT->frmlen = UNSET;
     hLdacBT->frm_status = 0;
     hLdacBT->bitrate = 0;
@@ -103,6 +96,10 @@ DECLFUNC void ldacBT_param_clear(HANDLE_LDAC_BT hLdacBT)
     hLdacBT->eqmid = UNSET;
     hLdacBT->transport = UNSET;
 
+#ifndef _ENCODE_ONLY
+    hLdacBT->flg_decode_inited = 0;
+#endif
+#ifndef _DECODE_ONLY
     clear_data_ldac( hLdacBT->ldac_trns_frm_buf.buf, sizeof(hLdacBT->ldac_trns_frm_buf.buf));
     hLdacBT->ldac_trns_frm_buf.used = 0;
     hLdacBT->ldac_trns_frm_buf.nfrm_in = 0;
@@ -111,6 +108,7 @@ DECLFUNC void ldacBT_param_clear(HANDLE_LDAC_BT hLdacBT)
     hLdacBT->pcmring.wp = 0;
     hLdacBT->pcmring.rp = 0;
     hLdacBT->pcmring.nsmpl = 0;
+#endif
 /* work buffer for I/O */
     for( ich = 0; ich < LDAC_PRCNCH; ich++ ){
         hLdacBT->ap_pcm[ich] = &hLdacBT->a_pcm[ ich * LDACBT_MAX_LSU * LDACBT_PCM_WLEN_MAX ];
@@ -149,7 +147,8 @@ DECLFUNC int ldacBT_assert_cm( int cm )
     }
     return LDACBT_ERR_NONE;
 }
-UNUSED_ATTR DECLFUNC int ldacBT_assert_cci( int cci )
+#ifndef _ENCODE_ONLY
+DECLFUNC int ldacBT_assert_cci( int cci )
 {
     if( (cci != LDAC_CCI_STEREO )
         && (cci != LDAC_CCI_DUAL_CHANNEL )
@@ -159,6 +158,7 @@ UNUSED_ATTR DECLFUNC int ldacBT_assert_cci( int cci )
     }
     return LDACBT_ERR_NONE;
 }
+#endif
 DECLFUNC int ldacBT_assert_sample_format( LDACBT_SMPL_FMT_T fmt )
 {
 #ifndef _32BIT_FIXED_POINT
@@ -186,6 +186,7 @@ DECLFUNC int ldacBT_assert_pcm_sampling_freq( int sampling_freq )
     }
     return LDACBT_ERR_NONE;
 }
+#ifndef    _DECODE_ONLY
 DECLFUNC int ldacBT_assert_mtu( int mtu )
 {
     if( mtu < LDACBT_MTU_REQUIRED ){
@@ -201,7 +202,9 @@ DECLFUNC int ldacBT_assert_eqmid( int eqmid )
 
     return LDACBT_ERR_ILL_EQMID;
 }
+#endif /* _DECODE_ONLY */
 
+#ifndef _DECODE_ONLY
 /* LDAC set Encode Quality Mode index core */
 DECLFUNC void ldacBT_set_eqmid_core( HANDLE_LDAC_BT hLdacBT, int eqmid )
 {
@@ -215,7 +218,9 @@ DECLFUNC void ldacBT_set_eqmid_core( HANDLE_LDAC_BT hLdacBT, int eqmid )
     hLdacBT->tgt_nfrm_in_pkt = pCfg->nfrm_in_pkt;
 
 }
+#endif /* _DECODE_ONLY */
 
+#ifndef    _DECODE_ONLY
 /* Split LR interleaved PCM into buffer that for LDAC encode. */
 DECLFUNC void ldacBT_prepare_pcm_encode( void *pbuff, char **ap_pcm, int nsmpl, int nch,
                      LDACBT_SMPL_FMT_T fmt )
@@ -296,8 +301,80 @@ DECLFUNC void ldacBT_prepare_pcm_encode( void *pbuff, char **ap_pcm, int nsmpl, 
         }
     }
 }
+#endif    /* _DECODE_ONLY */
 
+#ifndef _ENCODE_ONLY
+/* Interleave decode pcm data for output */
+DECLFUNC int ldacBT_interleave_pcm( unsigned char *p_pcm, const char **pp_pcm, int nsmpl, int nch,
+                                    LDACBT_SMPL_FMT_T fmt )
+{
+    int size, i;
+    size = 0;
+    if( nch == 2 ){
+        if( fmt == LDACBT_SMPL_FMT_S16 ){
+            short * p   = (short *)p_pcm;
+            short * p_l = (short *)pp_pcm[0];
+            short * p_r = (short *)pp_pcm[1];
+            for (i = 0; i < nsmpl; i++) {
+                *p++ = *p_l++;
+                *p++ = *p_r++;
+            }
+            size = nsmpl * 2/*wl*/ * 2/*ch*/;
+        }
+        else if( fmt == LDACBT_SMPL_FMT_S24 ){
+            char * p_l = (char *)pp_pcm[0];
+            char * p_r = (char *)pp_pcm[1];
+            for (i = 0; i < nsmpl; i++) {
+                *p_pcm++ = *p_l++; *p_pcm++ = *p_l++; *p_pcm++ = *p_l++;
+                *p_pcm++ = *p_r++; *p_pcm++ = *p_r++; *p_pcm++ = *p_r++;
+            }
+            size = nsmpl * 3/*wl*/ * 2/*ch*/;
+        }
+        else if( fmt == LDACBT_SMPL_FMT_S32 ){
+            int * p   = (int *)p_pcm;
+            int * p_l = (int *)pp_pcm[0];
+            int * p_r = (int *)pp_pcm[1];
+            for (i = 0; i < nsmpl; i++) {
+                *p++ = *p_l++;
+                *p++ = *p_r++;
+            }
+            size = nsmpl * 4/*wl*/ * 2/*ch*/;
+        }
+        else if( fmt == LDACBT_SMPL_FMT_F32 ){
+            float * p   = (float *)p_pcm;
+            float * p_l = (float *)pp_pcm[0];
+            float * p_r = (float *)pp_pcm[1];
+            for (i = 0; i < nsmpl; i++) {
+                *p++ = *p_l++;
+                *p++ = *p_r++;
+            }
+            size = nsmpl * 4/*wl*/ * 2/*ch*/;
+        }
+    }
+    else if ( nch == 1 ){
+        switch(fmt){
+          case LDACBT_SMPL_FMT_S16:
+            size = nsmpl * 2/*wl*/ * 1/*ch*/;
+            copy_data_ldac( pp_pcm[0], p_pcm, size );
+            break;
+          case LDACBT_SMPL_FMT_S24:
+            size = nsmpl * 3/*wl*/ * 1/*ch*/;
+            copy_data_ldac( pp_pcm[0], p_pcm, size );
+            break;
+          case LDACBT_SMPL_FMT_S32:
+          case LDACBT_SMPL_FMT_F32:
+            size = nsmpl * 4/*wl*/ * 1/*ch*/;
+            copy_data_ldac( pp_pcm[0], p_pcm, size );
+            break;
+          default:
+            break;
+        }
+    }
+    return size;
+}
+#endif /* _ENCODE_ONLY */
 
+#ifndef    _DECODE_ONLY
 /* update framelength */
 DECLFUNC int ldacBT_update_frmlen(HANDLE_LDAC_BT hLdacBT, int frmlen)
 {
@@ -381,6 +458,7 @@ ldac_setup_AGAIN:
 ldac_setup_END:
     return status;
 }
+#endif    /* _DECODE_ONLY */
 
 /* Get channel_config_index from channel_mode.
  * The argument cm, channel_mode, must be checked by function ldacBT_assert_cm() before calling this
@@ -399,11 +477,12 @@ DECLFUNC int  ldacBT_cm_to_cci( int cm )
     }
 }
 
+#ifndef _ENCODE_ONLY
 /* Get channel_mode from channel_config_index.
  * The argument cci, channel_config_index, must be checked by the function ldacBT_assert_cci() before
  * calling this function.
  */
-UNUSED_ATTR DECLFUNC int  ldacBT_cci_to_cm( int cci )
+DECLFUNC int  ldacBT_cci_to_cm( int cci )
 {
     if( cci == LDAC_CCI_STEREO ){
         return LDACBT_CHANNEL_MODE_STEREO;
@@ -415,7 +494,9 @@ UNUSED_ATTR DECLFUNC int  ldacBT_cci_to_cm( int cci )
         return LDACBT_CHANNEL_MODE_MONO;
     }
 }
+#endif
 
+#ifndef _DECODE_ONLY
 /* Get bitrate from frame length */
 DECLFUNC int ldacBT_frmlen_to_bitrate( int frmlen, int flgFrmHdr, int sf, int frame_samples )
 {
@@ -429,7 +510,9 @@ DECLFUNC int ldacBT_frmlen_to_bitrate( int frmlen, int flgFrmHdr, int sf, int fr
     bitrate  = frmlen * sf / frame_samples / (1000 / 8);
     return bitrate;
 }
+#endif    /* _DECODE_ONLY */
 
+#ifndef _DECODE_ONLY
 /* Get Encode Quality Mode index property */
 DECLFUNC P_LDACBT_EQMID_PROPERTY ldacBT_get_eqmid_conv_tbl ( int eqmid )
 {
@@ -446,7 +529,9 @@ DECLFUNC P_LDACBT_EQMID_PROPERTY ldacBT_get_eqmid_conv_tbl ( int eqmid )
     }
     return NULL;
 }
+#endif
 
+#ifndef _DECODE_ONLY
 /* Get altered Encode Quality Mode index */
 DECLFUNC int ldacBT_get_altered_eqmid ( HANDLE_LDAC_BT hLdacBT, int priority )
 {
@@ -480,7 +565,9 @@ DECLFUNC int ldacBT_get_altered_eqmid ( HANDLE_LDAC_BT hLdacBT, int priority )
     return eqmid_new;
 
 }
+#endif
 
+#ifndef    _DECODE_ONLY
 /* Get LDAC bitrate info from Encode Quality Mode Index */
 DECLFUNC P_LDACBT_CONFIG ldacBT_get_config( int ldac_bt_mode, int pkt_type )
 {
@@ -506,7 +593,9 @@ DECLFUNC P_LDACBT_CONFIG ldacBT_get_config( int ldac_bt_mode, int pkt_type )
     }
     return NULL; /* not found */
 }
+#endif    /* _DECODE_ONLY */
 
+#ifndef    _DECODE_ONLY
 /* Get Encode Quality Mode Index from framelength */
 DECLFUNC int ldacBT_get_eqmid_from_frmlen( int frmlen, int nch, int flgFrmHdr, int pktType )
 {
@@ -532,4 +621,5 @@ DECLFUNC int ldacBT_get_eqmid_from_frmlen( int frmlen, int nch, int flgFrmHdr, i
     }
     return eqmid;
 }
+#endif    /* _DECODE_ONLY */
 
