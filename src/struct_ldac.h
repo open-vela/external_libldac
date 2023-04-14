@@ -52,7 +52,7 @@ typedef union {
 #define clear_seq_l_ldac(p, n)     memset((char *)(p), 0, (n)*sizeof(int))
 #define clear_seq_f_ldac(p, n)     memset((char *)(p), 0, (n)*sizeof(SCALAR))
 
-#if _MSC_VER >=1400
+#if defined(_MSC_VER) && _MSC_VER >=1400
 /* Secured CRT Functions */
 #define copy_data_ldac(p1, p2, n)  memcpy_s((p2), (n), (p1), (n))
 #define copy_seq_s_ldac(p1, p2, n) memcpy_s((p2), (n)*sizeof(short), (p1), (n)*sizeof(short))

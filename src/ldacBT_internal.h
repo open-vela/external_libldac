@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <endian.h>
 #ifdef ANDROID
 #include <stdint.h>
 #include <unistd.h>
