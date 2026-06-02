@@ -60,11 +60,11 @@ typedef union {
 #define copy_seq_f_ldac(p1, p2, n) memcpy_s((p2), (n)*sizeof(SCALAR), (p1), (n)*sizeof(SCALAR))
 #define move_seq_f_ldac(p1, p2, n) memmove_s((p2), (n)*sizeof(SCALAR), (p1), (n)*sizeof(SCALAR))
 #else
-#define copy_data_ldac(p1, p2, n)  memcpy((p2), (p1), (n))
-#define copy_seq_s_ldac(p1, p2, n) memcpy((p2), (p1), (n)*sizeof(short))
-#define copy_seq_l_ldac(p1, p2, n) memcpy((p2), (p1), (n)*sizeof(int))
-#define copy_seq_f_ldac(p1, p2, n) memcpy((p2), (p1), (n)*sizeof(SCALAR))
-#define move_seq_f_ldac(p1, p2, n) memmove((p2), (p1), (n)*sizeof(SCALAR))
+#define copy_data_ldac(p1, p2, n)  ((n) > 0 ? memcpy((p2), (p1), (size_t)(n)) : (void *)NULL)
+#define copy_seq_s_ldac(p1, p2, n) ((n) > 0 ? memcpy((p2), (p1), (size_t)(n)*sizeof(short)) : (void *)NULL)
+#define copy_seq_l_ldac(p1, p2, n) ((n) > 0 ? memcpy((p2), (p1), (size_t)(n)*sizeof(int)) : (void *)NULL)
+#define copy_seq_f_ldac(p1, p2, n) ((n) > 0 ? memcpy((p2), (p1), (size_t)(n)*sizeof(SCALAR)) : (void *)NULL)
+#define move_seq_f_ldac(p1, p2, n) ((n) > 0 ? memmove((p2), (p1), (size_t)(n)*sizeof(SCALAR)) : (void *)NULL)
 #endif
 
 #endif /* _STRUCT_H */
